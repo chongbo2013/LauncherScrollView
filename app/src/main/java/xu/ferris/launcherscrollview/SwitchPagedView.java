@@ -177,9 +177,6 @@ public class SwitchPagedView extends ViewGroup {
     protected void snapToPage(int whichPage, int duration) {
 
         mCurrentPage = whichPage;
-
-        // awakenScrollBars(duration);
-
         int dx = mCurrentPage * mWidth - getScrollX();
 
         if (!mScroller.isFinished()) {
