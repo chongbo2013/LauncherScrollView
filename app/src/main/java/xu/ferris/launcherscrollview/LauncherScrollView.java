@@ -329,8 +329,9 @@ public class LauncherScrollView extends ViewGroup {
 
         switch (action & MotionEvent.ACTION_MASK) {
             case MotionEvent.ACTION_DOWN:
-
-                if (!mScroller.isFinished()) {
+                int mScrollY = getScrollY();
+                int maxY = desireHeight - getHeight();
+                if (!(mScrollY > maxY||mScrollY < 0)&&!mScroller.isFinished()) {
                     mScroller.abortAnimation();
                 }
 
@@ -353,8 +354,8 @@ public class LauncherScrollView extends ViewGroup {
                     final float deltaY = mLastMotionY - y;
 
 
-                    int mScrollY = getScrollY();
-                    int maxY = desireHeight - getHeight();
+                     mScrollY = getScrollY();
+                     maxY = desireHeight - getHeight();
                     if (mScrollY > maxY||mScrollY < 0) {
                         // 超出了下边界，或者上边界，则增加滑动阻尼
                         scrollBy( 0,(int) deltaY/2);
