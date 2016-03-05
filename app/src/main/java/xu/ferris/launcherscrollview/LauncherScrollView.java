@@ -3,7 +3,6 @@ package xu.ferris.launcherscrollview;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.VelocityTracker;
@@ -11,6 +10,7 @@ import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.animation.Interpolator;
+import android.widget.ScrollView;
 import android.widget.Scroller;
 import android.widget.Toast;
 
@@ -29,8 +29,7 @@ public class LauncherScrollView extends ViewGroup {
 
     protected final static int TOUCH_STATE_REST = 0;
     protected final static int TOUCH_STATE_SCROLLING = 1;
-    protected final static int TOUCH_STATE_PREV_PAGE = 2;
-    protected final static int TOUCH_STATE_NEXT_PAGE = 3;
+
     protected int mTouchState;
 
     protected float mLastMotionX;
@@ -41,11 +40,10 @@ public class LauncherScrollView extends ViewGroup {
 
     private int mMaximumVelocity;
 
-    protected static final int PAGE_SNAP_ANIMATION_DURATION = 750;
-
+    ScrollView mScrollView;
     public static final int MIN_SNAP_VELOCITY = 300;
 
-    public static final int MIN_MOVE_SPACE = 12;
+    public   int mTouchSlop ;
 
 
 
@@ -73,8 +71,7 @@ public class LauncherScrollView extends ViewGroup {
 
         final ViewConfiguration configuration = ViewConfiguration.get(getContext());
         mMaximumVelocity = configuration.getScaledMaximumFlingVelocity();
-
-
+        mTouchSlop = configuration.getScaledTouchSlop();
     }
 
     //添加按下速度检测
@@ -104,7 +101,7 @@ public class LauncherScrollView extends ViewGroup {
         final int yDiff = (int) Math.abs(y - mLastMotionY);
         //如果大于最小移动阀值，就设置为滚动状态
         //并且更新上一次触摸位置
-        if (yDiff > MIN_MOVE_SPACE) {
+        if (yDiff > mTouchSlop) {
             mTouchState = TOUCH_STATE_SCROLLING;
             mLastMotionY = y;
         }
@@ -318,7 +315,7 @@ public class LauncherScrollView extends ViewGroup {
 
         return mTouchState != TOUCH_STATE_REST;
     }
-
+    private final float DELTA_RATIO = 2; //数值越大, 头部空白下拉越慢. 值为1为完全跟手.
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         super.onTouchEvent(event);
@@ -355,7 +352,16 @@ public class LauncherScrollView extends ViewGroup {
                     final float y = event.getY(pointerIndex);
                     final float deltaY = mLastMotionY - y;
 
-                    scrollBy( 0,(int) deltaY);
+
+                    int mScrollY = getScrollY();
+                    int maxY = desireHeight - getHeight();
+                    if (mScrollY > maxY||mScrollY < 0) {
+                        // 超出了下边界，或者上边界，则增加滑动阻尼
+                        scrollBy( 0,(int) deltaY/2);
+                    }else{
+                        scrollBy( 0,(int) deltaY);
+                    }
+
 
                     mLastMotionY = y;
 
@@ -397,16 +403,16 @@ public class LauncherScrollView extends ViewGroup {
 
                 if (velocityY > 0 ) {
                 //上滑，判断距离底部的距离
-                    Toast.makeText(getContext(),"velocityY="+velocityY*2+"，上滑",Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getContext(),"velocityY="+velocityY+"，上滑",Toast.LENGTH_SHORT).show();
                     int distance=desireHeight-mScrollY-getHeight();
-                    mScroller.fling(0, mScrollY, 0, (int) -velocityY*2, 0, 0, 0, maxY);
+                    mScroller.fling(0, mScrollY, 0, (int) -velocityY, 0, 0, 0, maxY);
 
                     invalidate();
                 } else {
                     //下滑，判断距离顶部的距离
                     int distance=mScrollY;
-                    mScroller.fling(0, mScrollY, 0, (int) -velocityY*2, 0, 0, 0, maxY);
-                    Toast.makeText(getContext(),"velocityY="+velocityY*2+"，下滑",Toast.LENGTH_SHORT).show();
+                    mScroller.fling(0, mScrollY, 0, (int) -velocityY, 0, 0, 0, maxY);
+                    Toast.makeText(getContext(),"velocityY="+velocityY+"，下滑",Toast.LENGTH_SHORT).show();
                 }
 
 
