@@ -2,9 +2,11 @@ package xu.ferris.launcherscrollview;
 
 
 import android.content.Context;
+import android.content.res.TypedArray;
 import android.graphics.Rect;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.FocusFinder;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -17,10 +19,15 @@ import android.view.ViewParent;
 import android.view.animation.AnimationUtils;
 import android.view.animation.OvershootInterpolator;
 import android.widget.FrameLayout;
+import android.widget.LinearLayout;
 import android.widget.OverScroller;
 
 import java.lang.reflect.Field;
 import java.util.List;
+
+import xu.ferris.launcherscrollview.radar.ILoadingLayout;
+import xu.ferris.launcherscrollview.radar.LoadingLayoutProxy;
+import xu.ferris.launcherscrollview.radar.RadarLayout;
 
 /**
  * Created by ferris on 2016年3月7日 16:43:14
@@ -1606,23 +1613,10 @@ public class OverScrollView extends FrameLayout implements View.OnTouchListener
     {
         if (my >= child || n < 0)
         {
-			/*
-			 * my >= child is this case: |--------------- me ---------------|
-			 * |------ child ------| or |--------------- me ---------------|
-			 * |------ child ------| or |--------------- me ---------------|
-			 * |------ child ------|
-			 *
-			 * n < 0 is this case: |------ me ------| |-------- child --------|
-			 * |-- getScrollX() --|
-			 */
             return 0;
         }
         if ((my + n) > child)
         {
-			/*
-			 * this case: |------ me ------| |------ child ------| |--
-			 * getScrollX() --|
-			 */
             return child - my;
         }
         return n;
@@ -1711,5 +1705,131 @@ public class OverScrollView extends FrameLayout implements View.OnTouchListener
     {
         return 0;
     }
+
+
+
+
+    //刷新的模式
+    public static enum Mode {
+        /**
+         * 禁用，上啦下啦刷新
+         */
+        DISABLED,
+
+        /**
+         * 仅仅开启上啦刷新
+         */
+        PULL_FROM_START,
+
+        /**
+         * 仅仅开启下啦刷新
+         */
+        PULL_FROM_END,
+
+        /**
+         *同时开启上啦和下啦刷新
+         */
+        BOTH;
+
+        public static Mode getDefault() {
+            return PULL_FROM_END;
+        }
+
+
+        public boolean showHeaderLoadingLayout() {
+            return this == PULL_FROM_START || this == BOTH;
+        }
+
+
+        public boolean showFooterLoadingLayout() {
+            return this == PULL_FROM_END || this == BOTH ;
+        }
+    }
+
+    //header and footer
+    private RadarLayout mHeaderLayout;
+    private RadarLayout mFooterLayout;
+    private Mode mMode = Mode.getDefault();
+    private AnimationStyle mLoadingAnimationStyle = AnimationStyle.getDefault();
+    protected LoadingLayoutProxy createLoadingLayoutProxy(final boolean includeStart, final boolean includeEnd) {
+        LoadingLayoutProxy proxy = new LoadingLayoutProxy();
+
+        if (includeStart && mMode.showHeaderLoadingLayout()) {
+            proxy.addLayout(mHeaderLayout);
+        }
+        if (includeEnd && mMode.showFooterLoadingLayout()) {
+            proxy.addLayout(mFooterLayout);
+        }
+
+        return proxy;
+    }
+    protected RadarLayout createLoadingLayout(Context context, Mode mode, TypedArray attrs) {
+        RadarLayout layout = mLoadingAnimationStyle.createLoadingLayout(context, mode, attrs);
+        layout.setVisibility(View.INVISIBLE);
+        return layout;
+    }
+
+    public static enum AnimationStyle {
+        ROTATE,
+        FLIP,
+        RADAR;
+
+        static AnimationStyle getDefault() {
+            return ROTATE;
+        }
+
+        static AnimationStyle mapIntToValue(int modeInt) {
+            switch (modeInt) {
+                case 0x0:
+                default:
+                    return ROTATE;
+                case 0x1:
+                    return FLIP;
+            }
+        }
+
+        RadarLayout createLoadingLayout(Context context, Mode mode, TypedArray attrs) {
+            switch (this) {
+                case ROTATE:
+                default:
+                    return new RadarLayout(context, mode, attrs);
+            }
+        }
+    }
+    private LinearLayout.LayoutParams getLoadingLayoutLayoutParams() {
+        return new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.MATCH_PARENT);
+    }
+    private Mode mCurrentMode;
+    /**
+     * 初始化上啦和下啦刷新
+     */
+    public void initPullRefresh(TypedArray attrs){
+        // We need to create now layouts now
+        mHeaderLayout = createLoadingLayout(getContext(), Mode.PULL_FROM_START, attrs);
+        mFooterLayout = createLoadingLayout(getContext(), Mode.PULL_FROM_END, attrs);
+
+        final LinearLayout.LayoutParams lp = getLoadingLayoutLayoutParams();
+
+        // Remove Header, and then add Header Loading View again if needed
+        if (this == mHeaderLayout.getParent()) {
+            removeView(mHeaderLayout);
+        }
+        if (mMode.showHeaderLoadingLayout()) {
+            addView(mHeaderLayout, 0, lp);
+        }
+
+        // Remove Footer, and then add Footer Loading View again if needed
+        if (this == mFooterLayout.getParent()) {
+            removeView(mFooterLayout);
+        }
+        if (mMode.showFooterLoadingLayout()) {
+            addView(mFooterLayout, lp);
+        }
+
+        mCurrentMode = (mMode != Mode.BOTH) ? mMode : Mode.PULL_FROM_START;
+    }
+
+
 
 }
