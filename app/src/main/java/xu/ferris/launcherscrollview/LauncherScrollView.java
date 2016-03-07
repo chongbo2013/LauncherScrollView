@@ -21,7 +21,7 @@ import android.widget.Toast;
 public class LauncherScrollView extends ViewGroup {
     private Context mContext;
 
-
+    ScrollView mScrollView;
     private int desireWidth,desireHeight;
 
     private Scroller mScroller;
@@ -40,7 +40,7 @@ public class LauncherScrollView extends ViewGroup {
 
     private int mMaximumVelocity;
 
-    ScrollView mScrollView;
+
     public static final int MIN_SNAP_VELOCITY = 300;
 
     public   int mTouchSlop ;
@@ -242,7 +242,7 @@ public class LauncherScrollView extends ViewGroup {
         }
     }
 
-    private static class ScrollInterpolator implements Interpolator {
+    public static class ScrollInterpolator implements Interpolator {
         public ScrollInterpolator() {
         }
 

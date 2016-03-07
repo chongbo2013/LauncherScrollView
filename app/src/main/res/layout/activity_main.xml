@@ -1,11 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<xu.ferris.launcherscrollview.LauncherScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<xu.ferris.launcherscrollview.OverScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@android:color/white"
 >
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
     <TextView
         android:layout_width="match_parent"
         android:layout_height="300dp"
@@ -29,4 +33,5 @@
         android:layout_height="300dp"
         android:text="Hello World!"
         android:background="#1a1a1a"/>
-</xu.ferris.launcherscrollview.LauncherScrollView>
+    </LinearLayout>
+</xu.ferris.launcherscrollview.OverScrollView>
