@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:id="@+id/pullView"
     android:background="@android:color/white"
 >
 
@@ -10,6 +11,9 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical">
+
+        <include android:id="@+id/head_view" layout="@layout/head_layout"></include>
+
     <TextView
         android:layout_width="match_parent"
         android:layout_height="300dp"
@@ -33,5 +37,7 @@
         android:layout_height="300dp"
         android:text="Hello World!"
         android:background="#1a1a1a"/>
+
+        <include android:id="@+id/radar_view" layout="@layout/radar_layout"></include>
     </LinearLayout>
 </xu.ferris.launcherscrollview.OverScrollView>

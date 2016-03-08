@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-    <FrameLayout
+    <xu.ferris.launcherscrollview.radar.RadarLayout
         xmlns:android="http://schemas.android.com/apk/res/android"
         android:id="@+id/radar_innerLayout"
         android:layout_width="200dip"
         android:layout_height="100dip"
         android:clipChildren="true"
         android:orientation="vertical"
-
+        android:layout_gravity="center"
     >
 
         <ImageView
@@ -45,4 +45,4 @@
             android:text="松手刷新"
             android:gravity="center"
             android:visibility="invisible" />
-    </FrameLayout>
+    </xu.ferris.launcherscrollview.radar.RadarLayout>

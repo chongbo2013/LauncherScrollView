@@ -2,11 +2,9 @@ package xu.ferris.launcherscrollview;
 
 
 import android.content.Context;
-import android.content.res.TypedArray;
 import android.graphics.Rect;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
-import android.util.Log;
 import android.view.FocusFinder;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -19,14 +17,13 @@ import android.view.ViewParent;
 import android.view.animation.AnimationUtils;
 import android.view.animation.OvershootInterpolator;
 import android.widget.FrameLayout;
-import android.widget.LinearLayout;
 import android.widget.OverScroller;
+import android.widget.Toast;
 
 import java.lang.reflect.Field;
 import java.util.List;
 
-import xu.ferris.launcherscrollview.radar.ILoadingLayout;
-import xu.ferris.launcherscrollview.radar.LoadingLayoutProxy;
+import xu.ferris.launcherscrollview.radar.BlackLayout;
 import xu.ferris.launcherscrollview.radar.RadarLayout;
 
 /**
@@ -145,6 +142,12 @@ public class OverScrollView extends FrameLayout implements View.OnTouchListener
         initBounce();
     }
 
+    @Override
+    protected void onFinishInflate() {
+        super.onFinishInflate();
+        initPullRefresh();
+    }
+
     private void initBounce()
     {
         metrics = this.mContext.getResources().getDisplayMetrics();
@@ -209,8 +212,11 @@ public class OverScrollView extends FrameLayout implements View.OnTouchListener
     public void initChildPointer()
     {
         child = getChildAt(0);
-        child.setPadding(0, SizeUtils.dip2px(100), 0, SizeUtils.dip2px(100));
+//        child.setPadding(0, SizeUtils.dip2px(100), 0, SizeUtils.dip2px(100));
+    }
 
+    public int getPadingTopOrBottomPull(){
+        return SizeUtils.dip2px(100);
     }
 
     @Override
@@ -275,7 +281,7 @@ public class OverScrollView extends FrameLayout implements View.OnTouchListener
         {
             public void run()
             {
-                scrollTo(0, child.getPaddingTop());
+                scrollTo(0, getPadingTopOrBottomPull());
             }
         });
     }
@@ -597,6 +603,10 @@ public class OverScrollView extends FrameLayout implements View.OnTouchListener
     public boolean onTouchEvent(MotionEvent ev)
     {
 
+        if(isEnablePull&&isRefreshing){
+            return true;
+        }
+
         if (ev.getAction() == MotionEvent.ACTION_DOWN && ev.getEdgeFlags() != 0)
         {
             // Don't handle edge touches immediately -- they may actually belong
@@ -646,10 +656,17 @@ public class OverScrollView extends FrameLayout implements View.OnTouchListener
                     final int deltaY = (int) (mLastMotionY - y);
                     mLastMotionY = y;
 
-                    if (isOverScrolled())
+                    boolean isOverScrollStart=isOverScrolledStart();
+                    boolean isOverScrollEnd=isOverScrolledEnd();
+                    //如果是overscroll
+                    if (isOverScrollStart||isOverScrollEnd )
                     {
                         // when overscrolling, move the scroller just half of the
                         // finger movement, to make it feel like a spring...
+                        if(isEnablePull&&isOverScrollEnd){
+                            //设置刷新状态，正在上拉
+                            mCurrentMode=Mode.PULLING;
+                        }
                         scrollBy(0, deltaY / 2);
                     } else
                     {
@@ -664,8 +681,7 @@ public class OverScrollView extends FrameLayout implements View.OnTouchListener
                     velocityTracker.computeCurrentVelocity(1000, mMaximumVelocity);
                     int initialVelocity = (int) velocityTracker.getYVelocity(mActivePointerId);
 
-                    if (getChildCount() > 0 && Math.abs(initialVelocity) > mMinimumVelocity)
-                    {
+                   if (getChildCount() > 0 && Math.abs(initialVelocity) > mMinimumVelocity) {
                         fling(-initialVelocity);
                     }
 
@@ -700,7 +716,19 @@ public class OverScrollView extends FrameLayout implements View.OnTouchListener
 
     public boolean isOverScrolled()
     {
-        return (getScrollY() < child.getPaddingTop() || getScrollY() > child.getBottom() - child.getPaddingBottom() - getHeight());
+        return isOverScrolledStart()|| isOverScrolledEnd();
+    }
+
+    public boolean isOverScrolledStart(){
+        return getScrollY() < getPadingTopOrBottomPull();
+    }
+    public boolean isOverScrolledEnd(){
+        return getScrollY() > child.getBottom() - getPadingTopOrBottomPull() - getHeight();
+    }
+
+    //判断是否上拉到超过一般，则认为是上啦
+    public boolean isOverHalfScrolledEnd(){
+        return getScrollY() > child.getBottom() - getPadingTopOrBottomPull()/2 - getHeight();
     }
 
     private void onSecondaryPointerUp(MotionEvent ev)
@@ -1138,12 +1166,12 @@ public class OverScrollView extends FrameLayout implements View.OnTouchListener
 
     public final void smoothScrollToTop()
     {
-        smoothScrollTo(0, child.getPaddingTop());
+        smoothScrollTo(0, getPadingTopOrBottomPull());
     }
 
     public final void smoothScrollToBottom()
     {
-        smoothScrollTo(0, child.getHeight() - child.getPaddingTop() - getHeight());
+        smoothScrollTo(0, child.getHeight() - getPadingTopOrBottomPull() - getHeight());
     }
 
     /**
@@ -1511,8 +1539,8 @@ public class OverScrollView extends FrameLayout implements View.OnTouchListener
     protected void onScrollChanged(int leftOfVisibleView, int topOfVisibleView, int oldLeftOfVisibleView, int oldTopOfVisibleView)
     {
         int displayHeight = getHeight();
-        int paddingTop = child.getPaddingTop();
-        int contentBottom = child.getHeight() - child.getPaddingBottom();
+        int paddingTop = getPadingTopOrBottomPull();
+        int contentBottom = child.getHeight() - getPadingTopOrBottomPull();
 
         if (isInFlingMode)
         {
@@ -1622,9 +1650,13 @@ public class OverScrollView extends FrameLayout implements View.OnTouchListener
         return n;
     }
 
+    private boolean isRefreshing=false;
     @Override
     public boolean onTouch(View v, MotionEvent event)
     {
+
+        if(isRefreshing)
+            return true;
         // Stop scrolling calculation.
         mScroller.forceFinished(true);
         // Stop scrolling animation.
@@ -1632,6 +1664,11 @@ public class OverScrollView extends FrameLayout implements View.OnTouchListener
 
         if (event.getAction() == MotionEvent.ACTION_UP)
         {
+            //如果是上啦，并且拉超过一半，则进行进入上拉刷新状态
+            if(isEnablePull&&mCurrentMode==Mode.PULLING&&isOverHalfScrolledEnd()){
+                smoothPullToEnd();
+                return true;
+            }
             return overScrollView();
         }
 
@@ -1643,15 +1680,57 @@ public class OverScrollView extends FrameLayout implements View.OnTouchListener
         return false;
     }
 
+    public void completePull(){
+        smoothPullToTop();
+        isRefreshing=false;
+        mFooterLayout.reset();
+        mCurrentMode = Mode.RESET;
+    }
+    //显示雷达
+    public void smoothPullToEnd(){
+        if(isRefreshing)
+            return;
+
+        mFooterLayout.refreshing();
+        isRefreshing=true;
+//        isInFlingMode=false;
+        int scrollBy = child.getBottom() - getHeight()-getScrollY();
+        mScroller.startScroll(0, getScrollY(), 0, scrollBy, 250);
+        // Start animation.
+        post(overScrollerSpringbackTask);
+
+        prevScrollY = getScrollY();
+       // Toast.makeText(getContext(),"上啦刷新中", Toast.LENGTH_SHORT).show();
+        if(mOnPullListem!=null){
+            mOnPullListem.refresh();
+        }
+    }
+
+    private OnPullListem mOnPullListem;
+    public void setOnPullListem(OnPullListem mOnPullListem){
+        this.mOnPullListem=mOnPullListem;
+    }
+    public interface OnPullListem{
+        public void refresh();
+    }
+
+    //恢复原来状态
+    public void smoothPullToTop(){
+//        int contentBottom = child.getHeight() - getPadingTopOrBottomPull();
+//        int scrollBy = contentBottom - getHeight() - getScrollY();
+//        mScroller.startScroll(0, getScrollY(), 0, scrollBy, 250);
+        overScrollView();
+    }
+
     private boolean overScrollView()
     {
 
         // The height of scroll view, in pixels
         int displayHeight = getHeight();
         // The top of content view, in pixels.
-        int contentTop = child.getPaddingTop();
+        int contentTop = getPadingTopOrBottomPull();
         // The top of content view, in pixels.
-        int contentBottom = child.getHeight() - child.getPaddingBottom();
+        int contentBottom = child.getHeight() - getPadingTopOrBottomPull();
         // The scrolled top position of scroll view, in pixels.
         int currScrollY = getScrollY();
 
@@ -1666,7 +1745,7 @@ public class OverScrollView extends FrameLayout implements View.OnTouchListener
         } else if (currScrollY + displayHeight > contentBottom)
         {
             // Scroll to content top
-            if (child.getHeight() - child.getPaddingTop() - child.getPaddingBottom() < displayHeight)
+            if (child.getHeight() - getPadingTopOrBottomPull() - getPadingTopOrBottomPull() < displayHeight)
             {
 
                 scrollBy = contentTop - currScrollY;
@@ -1712,124 +1791,45 @@ public class OverScrollView extends FrameLayout implements View.OnTouchListener
     //刷新的模式
     public static enum Mode {
         /**
-         * 禁用，上啦下啦刷新
+         * 重置状态
          */
-        DISABLED,
+        RESET,
 
         /**
-         * 仅仅开启上啦刷新
+         * 正在上拉过程中
          */
-        PULL_FROM_START,
-
-        /**
-         * 仅仅开启下啦刷新
-         */
-        PULL_FROM_END,
-
-        /**
-         *同时开启上啦和下啦刷新
-         */
-        BOTH;
-
-        public static Mode getDefault() {
-            return PULL_FROM_END;
-        }
-
-
-        public boolean showHeaderLoadingLayout() {
-            return this == PULL_FROM_START || this == BOTH;
-        }
-
-
-        public boolean showFooterLoadingLayout() {
-            return this == PULL_FROM_END || this == BOTH ;
-        }
+        PULLING
     }
 
     //header and footer
-    private RadarLayout mHeaderLayout;
+    private BlackLayout mHeaderLayout;
     private RadarLayout mFooterLayout;
-    private Mode mMode = Mode.getDefault();
-    private AnimationStyle mLoadingAnimationStyle = AnimationStyle.getDefault();
-    protected LoadingLayoutProxy createLoadingLayoutProxy(final boolean includeStart, final boolean includeEnd) {
-        LoadingLayoutProxy proxy = new LoadingLayoutProxy();
+    private Mode mMode = Mode.RESET;
 
-        if (includeStart && mMode.showHeaderLoadingLayout()) {
-            proxy.addLayout(mHeaderLayout);
-        }
-        if (includeEnd && mMode.showFooterLoadingLayout()) {
-            proxy.addLayout(mFooterLayout);
-        }
-
-        return proxy;
-    }
-    protected RadarLayout createLoadingLayout(Context context, Mode mode, TypedArray attrs) {
-        RadarLayout layout = mLoadingAnimationStyle.createLoadingLayout(context, mode, attrs);
-        layout.setVisibility(View.INVISIBLE);
-        return layout;
-    }
-
-    public static enum AnimationStyle {
-        ROTATE,
-        FLIP,
-        RADAR;
-
-        static AnimationStyle getDefault() {
-            return ROTATE;
-        }
-
-        static AnimationStyle mapIntToValue(int modeInt) {
-            switch (modeInt) {
-                case 0x0:
-                default:
-                    return ROTATE;
-                case 0x1:
-                    return FLIP;
-            }
-        }
-
-        RadarLayout createLoadingLayout(Context context, Mode mode, TypedArray attrs) {
-            switch (this) {
-                case ROTATE:
-                default:
-                    return new RadarLayout(context, mode, attrs);
-            }
-        }
-    }
-    private LinearLayout.LayoutParams getLoadingLayoutLayoutParams() {
-        return new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
-                        LinearLayout.LayoutParams.MATCH_PARENT);
-    }
     private Mode mCurrentMode;
     /**
      * 初始化上啦和下啦刷新
      */
-    public void initPullRefresh(TypedArray attrs){
+    public void initPullRefresh(){
         // We need to create now layouts now
-        mHeaderLayout = createLoadingLayout(getContext(), Mode.PULL_FROM_START, attrs);
-        mFooterLayout = createLoadingLayout(getContext(), Mode.PULL_FROM_END, attrs);
-
-        final LinearLayout.LayoutParams lp = getLoadingLayoutLayoutParams();
-
-        // Remove Header, and then add Header Loading View again if needed
-        if (this == mHeaderLayout.getParent()) {
-            removeView(mHeaderLayout);
-        }
-        if (mMode.showHeaderLoadingLayout()) {
-            addView(mHeaderLayout, 0, lp);
-        }
-
-        // Remove Footer, and then add Footer Loading View again if needed
-        if (this == mFooterLayout.getParent()) {
-            removeView(mFooterLayout);
-        }
-        if (mMode.showFooterLoadingLayout()) {
-            addView(mFooterLayout, lp);
-        }
-
-        mCurrentMode = (mMode != Mode.BOTH) ? mMode : Mode.PULL_FROM_START;
+        mHeaderLayout = (BlackLayout) findViewById(R.id.head_view);
+        mFooterLayout =(RadarLayout) findViewById(R.id.radar_view);
+        //默认为上啦刷新
+        mCurrentMode = Mode.RESET;
     }
 
 
+    boolean isEnablePull=true;
+
+    /**
+     * 将View添加到，容器里面
+     * @param mView
+     */
+    public void addToContaint(View mView){
+        if(child!=null){
+            ViewGroup mParent=((ViewGroup)child);
+            mParent.addView(mView, Math.max(0,mParent.getChildCount()));
+        }
+    }
 
 }
